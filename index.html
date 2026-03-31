@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>工作天 / 日曆天 計算機（白底月曆版）</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div>
+        <h1>工作天 / 日曆天 計算機</h1>
+        <p class="sub">
+          假日資料來源：
+          <a href="https://github.com/880831ian/taiwan-calendar" target="_blank" rel="noreferrer">taiwan-calendar API</a>
+        </p>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn ghost" id="btnToday">帶入今天</button>
+        <button class="btn ghost" id="btnReset">重設</button>
+      </div>
+    </header>
+
+    <main class="grid">
+      <!-- Left: Controls -->
+      <section class="card controls">
+        <div class="tabs" role="tablist" aria-label="模式切換">
+          <button class="tab active" data-tab="add" role="tab" aria-selected="true">加天數算日期</button>
+          <button class="tab" data-tab="diff" role="tab" aria-selected="false">兩日期算差</button>
+        </div>
+
+        <!-- Add mode -->
+        <div class="panel active" id="panel-add">
+          <div class="form">
+            <label class="field">
+              <span>起始日期</span>
+              <input type="date" id="startDate" />
+              <small class="hint">你也可以在右側月曆直接點選日期。</small>
+            </label>
+
+            <div class="row">
+              <label class="field">
+                <span>天數</span>
+                <input type="number" id="daysToAdd" min="0" step="1" value="10" />
+              </label>
+
+              <label class="field">
+                <span>計算類型</span>
+                <select id="dayType">
+                  <option value="calendar">日曆天</option>
+                  <option value="business" selected>工作天（排除台灣假日/週末）</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="row">
+              <label class="field">
+                <span>起算方式</span>
+                <select id="countMode">
+                  <option value="include" selected>含當日開始</option>
+                  <option value="next">次一日開始</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>超出年份處理</span>
+                <select id="outOfRange">
+                  <option value="fallback" selected>改用週末規則（無法辨識國定假日）</option>
+                  <option value="block">阻擋計算並提示</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="actions">
+              <button class="btn primary" id="btnCalcAdd">計算</button>
+              <button class="btn" id="btnExplain">顯示/隱藏跳過清單</button>
+            </div>
+          </div>
+
+          <div class="summary" id="summaryAdd" aria-live="polite">
+            <div class="summary-title">交付日期</div>
+            <div class="summary-main">—</div>
+            <div class="summary-meta">請先設定起始日期與天數</div>
+          </div>
+
+          <div class="explain" id="explainBox" hidden>
+            <h3>跳過/計入明細（最近 60 筆）</h3>
+            <div class="explain-list" id="explainList"></div>
+          </div>
+        </div>
+
+        <!-- Diff mode -->
+        <div class="panel" id="panel-diff">
+          <div class="form">
+            <div class="row">
+              <label class="field">
+                <span>起始日期</span>
+                <input type="date" id="fromDate" />
+              </label>
+              <label class="field">
+                <span>結束日期</span>
+                <input type="date" id="toDate" />
+              </label>
+            </div>
+
+            <div class="row">
+              <label class="field">
+                <span>包含起始日</span>
+                <select id="diffIncludeStart">
+                  <option value="no" selected>不含</option>
+                  <option value="yes">包含</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>包含結束日</span>
+                <select id="diffIncludeEnd">
+                  <option value="yes" selected>包含</option>
+                  <option value="no">不含</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="row">
+              <label class="field">
+                <span>超出年份處理</span>
+                <select id="outOfRangeDiff">
+                  <option value="fallback" selected>改用週末規則</option>
+                  <option value="block">阻擋計算並提示</option>
+                </select>
+              </label>
+
+              <div class="field">
+                <span>在月曆點選時</span>
+                <div class="seg">
+                  <button class="seg-btn active" id="pickFrom">設為起始</button>
+                  <button class="seg-btn" id="pickTo">設為結束</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="actions">
+              <button class="btn primary" id="btnCalcDiff">計算</button>
+              <button class="btn" id="btnSwap">交換日期</button>
+            </div>
+          </div>
+
+          <div class="summary" id="summaryDiff" aria-live="polite">
+            <div class="summary-title">區間天數</div>
+            <div class="summary-main">—</div>
+            <div class="summary-meta">設定起迄日期後按「計算」</div>
+          </div>
+        </div>
+
+        <div class="note">
+          <p>
+            <strong>提示：</strong>假日與補班判斷依 API 的 <code>isHoliday</code> 欄位（含 <code>caption</code> 假日說明）。  
+          </p>
+        </div>
+      </section>
+
+      <!-- Right: Calendar -->
+      <section class="card calendar">
+        <div class="cal-head">
+          <div class="cal-nav">
+            <button class="icon-btn" id="prevMonth" aria-label="上個月">‹</button>
+            <div class="cal-title" id="calTitle">—</div>
+            <button class="icon-btn" id="nextMonth" aria-label="下個月">›</button>
+          </div>
+          <div class="cal-legend">
+            <span class="legend"><i class="dot due"></i>到期日</span>
+            <span class="legend"><i class="dot start"></i>起始日</span>
+            <span class="legend"><i class="dot hol"></i>假日</span>
+            <span class="legend"><i class="dot makeup"></i>補班</span>
+          </div>
+        </div>
+
+        <div class="cal-week">
+          <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+        </div>
+
+        <div class="cal-grid" id="calGrid" aria-label="月曆"></div>
+
+        <div class="cal-foot" id="calFoot">
+          <div class="status" id="statusMsg">載入行事曆資料中…</div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <small>White Calendar UI · For project delivery planning</small>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
